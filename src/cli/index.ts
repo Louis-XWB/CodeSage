@@ -5,6 +5,7 @@ import { GitService } from '../core/git.js'
 import { Reviewer } from '../core/reviewer.js'
 import { buildReviewAction } from './review.js'
 import { configGet, configSet } from './config-cmd.js'
+import { startServer } from './server-cmd.js'
 
 const program = new Command()
 
@@ -49,5 +50,11 @@ configCmd
   .command('set <key> <value>')
   .description('Set a config value')
   .action(configSet)
+
+program
+  .command('server')
+  .description('Start webhook server')
+  .option('--port <port>', 'Server port', '3000')
+  .action(startServer)
 
 program.parse()
