@@ -12,6 +12,8 @@ vi.mock('node:child_process', () => {
   const { EventEmitter } = require('node:events')
   const { Readable } = require('node:stream')
 
+  const { Writable } = require('node:stream')
+
   return {
     spawn: vi.fn(() => {
       const proc = new EventEmitter()
@@ -25,8 +27,10 @@ vi.mock('node:child_process', () => {
       }
       const stdout = Readable.from([JSON.stringify(validReport)])
       const stderr = Readable.from([''])
+      const stdin = new Writable({ write(_chunk, _enc, cb) { cb() } })
       proc.stdout = stdout
       proc.stderr = stderr
+      proc.stdin = stdin
 
       // Emit close in next tick
       setTimeout(() => proc.emit('close', 0), 10)

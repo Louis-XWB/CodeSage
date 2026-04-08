@@ -54,7 +54,11 @@ export class Reviewer {
       const proc = spawn('claude', args, {
         cwd,
         env: { ...process.env, ...extraEnv },
+        stdio: ['pipe', 'pipe', 'pipe'],
       })
+
+      // Close stdin immediately so claude doesn't wait for input
+      proc.stdin.end()
 
       let stdout = ''
       let stderr = ''
