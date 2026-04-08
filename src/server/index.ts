@@ -8,12 +8,17 @@ import { GiteeAdapter } from '../platforms/gitee.js'
 import { loadConfig } from '../config.js'
 import { TaskQueue } from './queue.js'
 
+// Allow self-signed certs for private Gitee deployments
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
 export async function createServer(port = 3000) {
   const app = Fastify({ logger: true })
   const config = loadConfig()
   const queue = new TaskQueue(2)
   const gitService = new GitService()
   const reviewer = new Reviewer()
+
+  app.log.info(`Config: platform=${config.platform}, giteeBaseUrl=${config.giteeBaseUrl}`)
 
   app.get('/health', async () => ({ status: 'ok' }))
 
@@ -38,7 +43,7 @@ export async function createServer(port = 3000) {
     const prNumber = pr.number as number
     const baseBranch = ((pr.base as Record<string, unknown>).ref) as string
     const headBranch = ((pr.head as Record<string, unknown>).ref) as string
-    const cloneUrl = repository.clone_url as string
+    const cloneUrl = (repository.clone_url ?? repository.html_url ?? repository.ssh_url) as string
 
     // Enqueue review task
     queue.enqueue(async () => {
