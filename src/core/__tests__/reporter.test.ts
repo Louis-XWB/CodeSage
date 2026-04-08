@@ -54,7 +54,7 @@ describe('reporter', () => {
   describe('toMarkdown', () => {
     it('includes summary and score', () => {
       const md = toMarkdown(SAMPLE_REPORT)
-      expect(md).toContain('72/100')
+      expect(md).toContain('Score-72')
       expect(md).toContain('Overall the PR looks good')
     })
 

@@ -48,7 +48,7 @@ index abc..def 100644
 
     const md = toMarkdown(report)
     expect(md).toContain('SQL injection')
-    expect(md).toContain('35/100')
+    expect(md).toContain('Score-35')
 
     const term = toTerminal(report)
     expect(term).toContain('35')
