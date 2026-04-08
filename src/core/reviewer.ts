@@ -73,7 +73,7 @@ export class Reviewer {
 
       proc.on('close', (code) => {
         if (code !== 0) {
-          reject(new Error(`claude exited with code ${code}: ${stderr}`))
+          reject(new Error(`claude exited with code ${code}\nstderr: ${stderr}\nstdout: ${stdout.slice(0, 500)}`))
         } else {
           resolve(stdout)
         }
