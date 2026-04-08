@@ -8,7 +8,7 @@
     "codesage": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsup && cp -r src/skills dist/skills",
+    "build": "rm -rf dist && tsup && cp -r src/skills dist/skills",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",

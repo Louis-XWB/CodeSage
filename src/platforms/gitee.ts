@@ -48,7 +48,7 @@ export class GiteeAdapter implements PlatformAdapter {
       description: pr.body ?? '',
       baseBranch: pr.base.ref,
       headBranch: pr.head.ref,
-      repoCloneUrl: pr.base.repo.clone_url,
+      repoCloneUrl: pr.base.repo.clone_url ?? pr.base.repo.html_url ?? pr.base.repo.ssh_url,
       author: pr.user.login,
       files: files.map((f: { filename: string }) => f.filename),
     }

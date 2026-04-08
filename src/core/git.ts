@@ -7,7 +7,7 @@ import os from 'node:os'
 
 export class GitService {
   private getGit(cwd: string): SimpleGit {
-    return simpleGit(cwd)
+    return simpleGit(cwd).env('GIT_SSL_NO_VERIFY', 'true')
   }
 
   getWorkDir(repoUrl: string): string {
@@ -21,7 +21,7 @@ export class GitService {
       await git.fetch(['--all', '--prune'])
     } else {
       fs.mkdirSync(workDir, { recursive: true })
-      await simpleGit().clone(repoUrl, workDir)
+      await simpleGit().env('GIT_SSL_NO_VERIFY', 'true').clone(repoUrl, workDir)
     }
   }
 
