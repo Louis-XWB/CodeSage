@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // src/cli/index.ts
 import { Command } from 'commander'
 import { GitService } from '../core/git.js'
