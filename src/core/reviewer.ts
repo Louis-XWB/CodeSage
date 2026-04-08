@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DiffResult, ReviewReport } from '../types.js'
@@ -18,9 +19,11 @@ export class Reviewer {
     const { repoPath, diff, env } = options
     const skillPath = options.skillPath ?? DEFAULT_SKILL
 
+    // Read skill instructions
+    const skillContent = fs.readFileSync(skillPath, 'utf-8')
     const diffSummary = this.buildDiffSummary(diff)
 
-    const prompt = `Review this PR.\n\nChanged files:\n${diffSummary}`
+    const prompt = `${skillContent}\n\n---\n\n以下是本次 PR 的变更内容：\n\n${diffSummary}`
 
     const args = [
       '--print',
@@ -79,39 +82,61 @@ export class Reviewer {
   }
 
   private parseOutput(raw: string): ReviewReport {
-    // Try to extract JSON from the output — Claude may wrap it in markdown fences
-    let jsonStr = raw.trim()
+    const trimmed = raw.trim()
 
-    // Strip markdown code fences if present
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1].trim()
+    // Try to extract JSON — multiple strategies
+    const jsonStr = this.extractJSON(trimmed)
+    if (jsonStr) {
+      try {
+        const parsed = JSON.parse(jsonStr)
+        if (typeof parsed.summary === 'string' && typeof parsed.score === 'number') {
+          return {
+            summary: parsed.summary,
+            score: parsed.score,
+            issues: parsed.issues ?? [],
+            suggestions: parsed.suggestions ?? [],
+            metadata: parsed.metadata ?? {
+              model: 'unknown',
+              duration: 0,
+              filesReviewed: 0,
+            },
+          }
+        }
+      } catch {
+        // Fall through to raw fallback
+      }
     }
 
-    // Try to find JSON object boundaries
-    const startIdx = jsonStr.indexOf('{')
-    const endIdx = jsonStr.lastIndexOf('}')
-    if (startIdx !== -1 && endIdx !== -1) {
-      jsonStr = jsonStr.slice(startIdx, endIdx + 1)
-    }
-
-    const parsed = JSON.parse(jsonStr)
-
-    // Validate required fields
-    if (typeof parsed.summary !== 'string' || typeof parsed.score !== 'number') {
-      throw new Error('Invalid review output: missing summary or score')
-    }
-
+    // Fallback: model returned non-JSON (e.g. Markdown), wrap it as a report
+    console.warn('Warning: AI returned non-JSON output, wrapping as raw report')
     return {
-      summary: parsed.summary,
-      score: parsed.score,
-      issues: parsed.issues ?? [],
-      suggestions: parsed.suggestions ?? [],
-      metadata: parsed.metadata ?? {
+      summary: trimmed.slice(0, 200),
+      score: 0,
+      issues: [],
+      suggestions: [],
+      metadata: {
         model: 'unknown',
         duration: 0,
         filesReviewed: 0,
       },
+      rawOutput: trimmed,
+    } as ReviewReport & { rawOutput: string }
+  }
+
+  private extractJSON(text: string): string | null {
+    // Strategy 1: markdown code fence
+    const fenceMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n\s*```/)
+    if (fenceMatch) {
+      return fenceMatch[1].trim()
     }
+
+    // Strategy 2: find outermost { ... }
+    const startIdx = text.indexOf('{')
+    const endIdx = text.lastIndexOf('}')
+    if (startIdx !== -1 && endIdx > startIdx) {
+      return text.slice(startIdx, endIdx + 1)
+    }
+
+    return null
   }
 }

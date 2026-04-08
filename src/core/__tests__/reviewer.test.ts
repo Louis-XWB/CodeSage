@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Reviewer } from '../reviewer.js'
 import type { DiffResult, ReviewReport } from '../../types.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const REAL_SKILL = path.resolve(__dirname, '..', '..', 'skills', 'review.md')
 
 // Mock child_process.spawn
 vi.mock('node:child_process', () => {
@@ -43,7 +48,7 @@ describe('Reviewer', () => {
     const report = await reviewer.review({
       repoPath: '/tmp/test-repo',
       diff: sampleDiff,
-      skillPath: '/path/to/review.md',
+      skillPath: REAL_SKILL,
     })
     expect(report.score).toBe(90)
     expect(report.summary).toBe('Good PR')
@@ -55,7 +60,7 @@ describe('Reviewer', () => {
     await reviewer.review({
       repoPath: '/tmp/test-repo',
       diff: sampleDiff,
-      skillPath: '/path/to/review.md',
+      skillPath: REAL_SKILL,
     })
 
     expect(spawn).toHaveBeenCalledWith(
@@ -73,7 +78,7 @@ describe('Reviewer', () => {
     await reviewer.review({
       repoPath: '/tmp/test-repo',
       diff: sampleDiff,
-      skillPath: '/path/to/review.md',
+      skillPath: REAL_SKILL,
       env: { ANTHROPIC_BASE_URL: 'https://custom.api.com' },
     })
 
