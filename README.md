@@ -1,24 +1,25 @@
 # CodeSage
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 AI code review engine powered by Claude Code. Full-project-aware review for Pull Requests — not just diffs.
 
-CodeSage leverages Claude Code CLI as its review engine, giving it the ability to explore your entire codebase (read files, search for references, understand call chains) before providing structured review feedback.
+Unlike traditional diff-based review tools, CodeSage leverages Claude Code CLI to explore your entire codebase — reading files, searching for references, and understanding call chains — before providing structured review feedback.
 
 ## Features
 
-- **Full-project review** — Goes beyond diff, explores references and call chains using Claude Code's tooling
-- **Gitee-first** — First-class support for Gitee (including private deployments), with a platform-agnostic architecture
-- **CLI + Webhook** — Review PRs manually from the terminal or automatically via webhook
-- **Structured reports** — JSON / Markdown / Terminal output with severity levels, categories, and fix suggestions
+- **Full-project review** — Goes beyond diff, explores references and call chains across the entire codebase
+- **Gitee-first** — First-class support for Gitee (including private/enterprise deployments), with a platform-agnostic architecture
+- **CLI + Webhook** — Review PRs manually from the terminal or automatically via webhook on PR creation/update
+- **Structured reports** — JSON / Markdown / Terminal output with score, severity levels, categories, and fix suggestions
 - **PR comment writeback** — Posts review summary and line-level comments directly to your PR
-- **Multi-model** — Switch AI providers via `ANTHROPIC_BASE_URL` (DeepSeek, OpenRouter, local models, etc.)
+- **Multi-model** — Switch AI providers via config: Claude, DeepSeek, BigModel (zhipu), OpenRouter, or any Anthropic-compatible API
 
 ## Quick Start
 
 ### Install
 
 ```bash
-# From source
 git clone https://github.com/Louis-XWB/CodeSage.git
 cd CodeSage
 pnpm install
@@ -29,20 +30,28 @@ npm link
 ### Configure
 
 ```bash
-# Set your Gitee token
+# AI provider (default: Anthropic Claude)
+codesage config set apiBaseUrl "https://api.anthropic.com"
+codesage config set apiToken "your-api-key"
+
+# Or use BigModel (zhipu), DeepSeek, etc.
+codesage config set apiBaseUrl "https://open.bigmodel.cn/api/anthropic"
+codesage config set apiToken "your-bigmodel-key"
+
+# Gitee token (required for PR review and comment writeback)
 codesage config set giteeToken "your-gitee-token"
 
-# For private Gitee deployments
+# For private/enterprise Gitee deployments
 codesage config set giteeBaseUrl "https://gitee.your-company.com"
-
-# Use a different AI provider (optional)
-codesage config set apiBaseUrl "https://api.deepseek.com"
-codesage config set apiToken "your-api-token"
 ```
 
-Or use environment variables:
+Config is stored locally at `~/.codesage/config.json` — never committed to git.
+
+You can also use environment variables (they take priority over config file):
 
 ```bash
+export CODESAGE_API_BASE_URL="https://open.bigmodel.cn/api/anthropic"
+export CODESAGE_API_TOKEN="your-key"
 export CODESAGE_GITEE_TOKEN="your-token"
 export CODESAGE_GITEE_BASE_URL="https://gitee.your-company.com"
 ```
@@ -56,7 +65,7 @@ codesage review --pr https://gitee.com/org/repo/pulls/123
 # Review and post comments back to the PR
 codesage review --pr https://gitee.com/org/repo/pulls/123 --comment
 
-# Review a local branch diff
+# Review a local branch diff (no Gitee token needed)
 codesage review --repo /path/to/repo --base main --head feature/xyz
 
 # Output as JSON
@@ -66,28 +75,31 @@ codesage review --pr https://gitee.com/org/repo/pulls/123 --format json
 codesage review --pr https://gitee.com/org/repo/pulls/123 --output report.md --format markdown
 ```
 
-### Webhook Server
+### Webhook Server (Auto-review on PR)
 
-Automatically review PRs when they are created or updated:
+Start a server that automatically reviews PRs when they are created or updated:
 
 ```bash
-# Start the webhook server
 codesage server --port 3000
 ```
 
 Then configure your Gitee repository webhook:
 
-1. Go to **Settings > Webhooks** in your Gitee repository
-2. Set URL to `http://your-server:3000/webhook/gitee`
+1. Go to your repo **Settings > Webhooks**
+2. Set URL to `http://your-server-ip:3000/webhook/gitee`
 3. Select **Pull Request** events
-4. Set a Secret Token (optional)
+4. Save
+
+Every new or updated PR will be automatically reviewed, and comments will be posted back to the PR.
 
 ### Docker
 
 ```bash
 docker build -t codesage .
 docker run -p 3000:3000 \
-  -e CODESAGE_GITEE_TOKEN=your-token \
+  -e CODESAGE_API_BASE_URL=https://open.bigmodel.cn/api/anthropic \
+  -e CODESAGE_API_TOKEN=your-api-key \
+  -e CODESAGE_GITEE_TOKEN=your-gitee-token \
   -e CODESAGE_GITEE_BASE_URL=https://gitee.your-company.com \
   codesage
 ```
@@ -104,9 +116,9 @@ Gitee Webhook ──→ Server ──→ Core Engine            Platform Adapter
 
 1. **Trigger** — CLI command or Gitee webhook event
 2. **Prepare** — Clone/fetch repo, checkout PR branch, compute diff
-3. **Analyze** — Claude Code CLI reviews the code with full project context (reads files, searches for references, understands call chains)
-4. **Report** — Structured JSON with score, issues by severity, and suggestions
-5. **Distribute** — Terminal output, Markdown report, or PR comments
+3. **Analyze** — Claude Code CLI reviews with full project context (reads files, searches references, understands call chains)
+4. **Report** — Structured JSON with score (0-100), issues by severity, and suggestions
+5. **Distribute** — Terminal output, Markdown report, and/or PR comments
 
 ## Review Output
 
@@ -119,6 +131,25 @@ CodeSage generates structured reviews with:
   - `info` — Optional improvements (style, naming)
 - **Categories** — bug, security, performance, style, design
 - **Suggestions** — General improvement recommendations
+
+Example terminal output:
+
+```
+CodeSage Review  35/100
+
+Critical security issues detected. Command injection vulnerability
+in report endpoint, insecure authentication mechanism.
+
+  [CRITICAL] Command injection vulnerability
+    src/controllers/search.ts:56 (security)
+    User input directly interpolated into shell command via exec().
+    → Use a whitelist for report types, avoid exec() entirely.
+
+  [WARNING] N+1 query pattern
+    src/controllers/search.ts:23 (performance)
+    findUserById called in loop for every task.
+    → Pre-load users into a Map before the loop.
+```
 
 ## Configuration
 
@@ -135,17 +166,28 @@ Config file: `~/.codesage/config.json`
 
 Priority: Environment variables > Config file > Defaults
 
+## Supported AI Providers
+
+Any Anthropic-compatible API endpoint works. Tested with:
+
+| Provider | apiBaseUrl |
+|----------|-----------|
+| Anthropic Claude | `https://api.anthropic.com` (default) |
+| BigModel (zhipu) | `https://open.bigmodel.cn/api/anthropic` |
+| DeepSeek | `https://api.deepseek.com` |
+| OpenRouter | `https://openrouter.ai/api/v1` |
+
 ## Prerequisites
 
 - Node.js >= 18
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed (`npm install -g @anthropic-ai/claude-code`)
-- A valid API key for Claude (or compatible provider)
+- A valid API key for Claude or a compatible provider
 
 ## Development
 
 ```bash
 pnpm install
-pnpm test          # Run tests
+pnpm test          # Run tests (37 tests)
 pnpm build         # Build
 pnpm dev           # Watch mode
 ```
@@ -157,6 +199,11 @@ pnpm dev           # Watch mode
 - [ ] Custom review rules (`.codesage.yml`)
 - [ ] tree-sitter AST analysis for deeper code understanding
 - [ ] Trend analysis across PRs
+- [ ] npm publish for `npx codesage` usage
+
+## Contributing
+
+Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/Louis-XWB/CodeSage).
 
 ## License
 
