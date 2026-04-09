@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 import { parseDiff } from '../core/differ.js'
 import { toJSON, toMarkdown, toTerminal } from '../core/reporter.js'
 import { parsePRUrl } from '../platforms/url-parser.js'
 import { loadConfig } from '../config.js'
 import type { ReviewReport } from '../types.js'
+import { loadProjectConfig } from '../config/project-config.js'
+import { filterDiff } from '../core/differ.js'
+import { buildPrompt } from '../core/prompt-builder.js'
 
 describe('integration smoke test', () => {
   it('full pipeline: diff → report → format', () => {
@@ -65,5 +71,76 @@ index abc..def 100644
     const config = loadConfig('/nonexistent/path.json')
     expect(config.platform).toBe('gitee')
     expect(config.defaultFormat).toBe('terminal')
+  })
+})
+
+describe('project config integration', () => {
+  const testDir = path.join(os.tmpdir(), 'codesage-integration-cfg-' + Date.now())
+
+  beforeEach(() => {
+    fs.mkdirSync(testDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    fs.rmSync(testDir, { recursive: true, force: true })
+  })
+
+  it('full flow: load config → filter diff → build prompt', () => {
+    fs.writeFileSync(path.join(testDir, '.codesage.yml'), `
+language: typescript
+focus:
+  security: high
+  style: ignore
+include:
+  - src/
+exclude:
+  - "**/*.test.ts"
+maxFiles: 5
+extraPrompt: Check for SQL injection.
+reportLanguage: en
+`)
+
+    // Load config
+    const config = loadProjectConfig(testDir)
+    expect(config.language).toBe('typescript')
+
+    // Filter diff
+    const diff = parseDiff(`diff --git a/src/app.ts b/src/app.ts
+index abc..def 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -1,1 +1,2 @@
+ existing
++new line
+diff --git a/src/app.test.ts b/src/app.test.ts
+new file mode 100644
+index 000..abc
+--- /dev/null
++++ b/src/app.test.ts
+@@ -0,0 +1,1 @@
++test
+diff --git a/docs/readme.md b/docs/readme.md
+index abc..def 100644
+--- a/docs/readme.md
++++ b/docs/readme.md
+@@ -1,1 +1,2 @@
+ old
++new`)
+
+    const filtered = filterDiff(diff, config)
+    // src/app.ts included, src/app.test.ts excluded, docs/readme.md not in include
+    expect(filtered.files).toHaveLength(1)
+    expect(filtered.files[0].path).toBe('src/app.ts')
+
+    // Build prompt
+    const prompt = buildPrompt('Base skill content.', filtered, config)
+    expect(prompt).toContain('typescript')
+    expect(prompt).toContain('security')
+    expect(prompt).toContain('style')
+    expect(prompt).toContain('跳过')
+    expect(prompt).toContain('SQL injection')
+    expect(prompt).toContain('src/app.ts')
+    expect(prompt).not.toContain('app.test.ts')
+    expect(prompt).not.toContain('readme.md')
   })
 })
