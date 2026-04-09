@@ -6,7 +6,9 @@ import { parseDiff } from '../core/differ.js'
 import { toJSON, toMarkdown, toTerminal } from '../core/reporter.js'
 import { parsePRUrl } from '../platforms/url-parser.js'
 import { loadConfig } from '../config.js'
-import type { ReviewReport } from '../types.js'
+import type { ReviewReport, DiffResult } from '../types.js'
+import { saveReview, getHistory, getRepoStats, listRepos } from '../store/history.js'
+import { getDb, closeDb } from '../store/db.js'
 import { loadProjectConfig } from '../config/project-config.js'
 import { filterDiff } from '../core/differ.js'
 import { buildPrompt } from '../core/prompt-builder.js'
@@ -142,5 +144,55 @@ index abc..def 100644
     expect(prompt).toContain('src/app.ts')
     expect(prompt).not.toContain('app.test.ts')
     expect(prompt).not.toContain('readme.md')
+  })
+})
+
+describe('review history integration', () => {
+  const testDir = path.join(os.tmpdir(), 'codesage-hist-integ-' + Date.now())
+  const dbPath = path.join(testDir, 'test.db')
+
+  beforeEach(() => {
+    fs.mkdirSync(testDir, { recursive: true })
+    getDb(dbPath)
+  })
+
+  afterEach(() => {
+    closeDb()
+    fs.rmSync(testDir, { recursive: true, force: true })
+  })
+
+  it('full flow: save review → query history → get stats', () => {
+    const report: ReviewReport = {
+      summary: 'Test review',
+      score: 70,
+      issues: [
+        { severity: 'critical', category: 'security', file: 'app.ts', title: 'Issue', description: 'Desc' },
+      ],
+      suggestions: [],
+      metadata: { model: 'test', duration: 1000, filesReviewed: 1 },
+    }
+    const diff: DiffResult = {
+      files: [{ path: 'app.ts', status: 'modified', hunks: [] }],
+      stats: { additions: 10, deletions: 2, filesChanged: 1 },
+    }
+
+    // Save
+    saveReview({ repo: 'test/repo', prNumber: 1, baseBranch: 'main', headBranch: 'feat', report, diff, blocked: true })
+    saveReview({ repo: 'test/repo', prNumber: 2, report: { ...report, score: 90 }, diff, blocked: false })
+
+    // Query
+    const history = getHistory({ repo: 'test/repo' })
+    expect(history).toHaveLength(2)
+
+    // Stats
+    const stats = getRepoStats('test/repo')
+    expect(stats.totalReviews).toBe(2)
+    expect(stats.avgScore).toBe(80)
+    expect(stats.blockedCount).toBe(1)
+
+    // List
+    const repos = listRepos()
+    expect(repos).toHaveLength(1)
+    expect(repos[0].repo).toBe('test/repo')
   })
 })
