@@ -161,18 +161,32 @@ export class Reviewer {
 
     // Try to extract complete issue objects
     const issues: ReviewReport['issues'] = []
-    const issueRegex = /\{\s*"severity"\s*:\s*"(critical|warning|info)"\s*,\s*"category"\s*:\s*"(\w+)"\s*,\s*"file"\s*:\s*"([^"]+)"\s*(?:,\s*"line"\s*:\s*(\d+))?\s*,\s*"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"description"\s*:\s*"((?:[^"\\]|\\.)*)"\s*(?:,\s*"suggestion"\s*:\s*"((?:[^"\\]|\\.)*)")?\s*\}/gs
-    let match
-    while ((match = issueRegex.exec(text)) !== null) {
-      issues.push({
-        severity: match[1] as 'critical' | 'warning' | 'info',
-        category: match[2] as 'bug' | 'security' | 'performance' | 'style' | 'design',
-        file: match[3],
-        line: match[4] ? parseInt(match[4], 10) : undefined,
-        title: match[5].replace(/\\"/g, '"'),
-        description: match[6].replace(/\\"/g, '"'),
-        suggestion: match[7]?.replace(/\\"/g, '"'),
-      })
+    // Match issue objects — flexible field order using individual field extraction
+    const issueBlockRegex = /\{\s*"severity"\s*:\s*"(critical|warning|info)"[^}]*\}/gs
+    let blockMatch
+    while ((blockMatch = issueBlockRegex.exec(text)) !== null) {
+      const block = blockMatch[0]
+      const sev = block.match(/"severity"\s*:\s*"(critical|warning|info)"/)
+      const cat = block.match(/"category"\s*:\s*"(\w+)"/)
+      const fil = block.match(/"file"\s*:\s*"([^"]+)"/)
+      const lin = block.match(/"line"\s*:\s*(\d+)/)
+      const com = block.match(/"commit"\s*:\s*"([^"]+)"/)
+      const tit = block.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+      const desc = block.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+      const sug = block.match(/"suggestion"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+
+      if (sev && cat && fil && tit && desc) {
+        issues.push({
+          severity: sev[1] as 'critical' | 'warning' | 'info',
+          category: cat[1] as 'bug' | 'security' | 'performance' | 'style' | 'design',
+          file: fil[1],
+          line: lin ? parseInt(lin[1], 10) : undefined,
+          commit: com?.[1],
+          title: tit[1].replace(/\\"/g, '"'),
+          description: desc[1].replace(/\\"/g, '"'),
+          suggestion: sug?.[1]?.replace(/\\"/g, '"'),
+        })
+      }
     }
 
     // Try to extract suggestions

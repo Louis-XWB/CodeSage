@@ -26,6 +26,7 @@ export interface ReviewIssue {
   category: 'bug' | 'security' | 'performance' | 'style' | 'design'
   file: string
   line?: number
+  commit?: string             // short commit hash that introduced this issue
   title: string
   description: string
   suggestion?: string
