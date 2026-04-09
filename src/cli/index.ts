@@ -5,6 +5,7 @@ import { Reviewer } from '../core/reviewer.js'
 import { buildReviewAction } from './review.js'
 import { configGet, configSet } from './config-cmd.js'
 import { startServer } from './server-cmd.js'
+import { historyAction, historyStatsAction, historyListAction } from './history-cmd.js'
 
 const program = new Command()
 
@@ -55,5 +56,23 @@ program
   .description('Start webhook server')
   .option('--port <port>', 'Server port', '3000')
   .action(startServer)
+
+const historyCmd = program
+  .command('history')
+  .description('View review history')
+  .option('--repo <name>', 'Filter by repository (owner/repo)')
+  .option('--pr <number>', 'Filter by PR number')
+  .action(historyAction)
+
+historyCmd
+  .command('list')
+  .description('List all reviewed repositories')
+  .action(historyListAction)
+
+historyCmd
+  .command('stats')
+  .description('Show repository statistics')
+  .requiredOption('--repo <name>', 'Repository name (owner/repo)')
+  .action(historyStatsAction)
 
 program.parse()
