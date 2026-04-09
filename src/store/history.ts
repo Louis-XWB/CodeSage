@@ -197,3 +197,45 @@ export function listRepos(): RepoSummary[] {
     lastReview: row.lastReview as string,
   }))
 }
+
+export interface ReviewDetail extends HistoryEntry {
+  changedFiles: string[]
+  report: ReviewReport
+}
+
+export function getReviewDetail(id: number): ReviewDetail | null {
+  const db = getDb()
+
+  const row = db.prepare(`
+    SELECT
+      id, repo, pr_number AS prNumber, base_branch AS baseBranch, head_branch AS headBranch,
+      score, summary, issues_count AS issuesCount, critical_count AS criticalCount,
+      warning_count AS warningCount, info_count AS infoCount, blocked,
+      files_changed AS filesChanged, additions, deletions, created_at AS createdAt,
+      changed_files AS changedFiles, report_json AS reportJson
+    FROM reviews WHERE id = ?
+  `).get(id) as Record<string, unknown> | undefined
+
+  if (!row) return null
+
+  return {
+    id: row.id as number,
+    repo: row.repo as string,
+    prNumber: row.prNumber as number | null,
+    baseBranch: row.baseBranch as string | null,
+    headBranch: row.headBranch as string | null,
+    score: row.score as number,
+    summary: row.summary as string,
+    issuesCount: row.issuesCount as number,
+    criticalCount: row.criticalCount as number,
+    warningCount: row.warningCount as number,
+    infoCount: row.infoCount as number,
+    blocked: (row.blocked as number) === 1,
+    filesChanged: row.filesChanged as number,
+    additions: row.additions as number,
+    deletions: row.deletions as number,
+    createdAt: row.createdAt as string,
+    changedFiles: JSON.parse((row.changedFiles as string) || '[]'),
+    report: JSON.parse(row.reportJson as string),
+  }
+}

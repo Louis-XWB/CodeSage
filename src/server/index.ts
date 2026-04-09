@@ -10,6 +10,8 @@ import { loadProjectConfig } from '../config/project-config.js'
 import { TaskQueue } from './queue.js'
 import { saveReview } from '../store/history.js'
 import { getDb } from '../store/db.js'
+import { registerApiRoutes } from './api-routes.js'
+import cors from '@fastify/cors'
 
 // Allow self-signed certs for private Gitee deployments
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -26,6 +28,12 @@ export async function createServer(port = 3000) {
   // key: "owner/repo#number:headSha", value: timestamp
   const reviewedPRs = new Map<string, number>()
   const DEDUP_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
+  // CORS for Dashboard frontend
+  await app.register(cors, { origin: true })
+
+  // REST API routes for Dashboard
+  await registerApiRoutes(app)
 
   app.log.info(`Config: platform=${config.platform}, giteeBaseUrl=${config.giteeBaseUrl}`)
 
