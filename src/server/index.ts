@@ -8,6 +8,8 @@ import { GiteeAdapter } from '../platforms/gitee.js'
 import { loadConfig } from '../config.js'
 import { loadProjectConfig } from '../config/project-config.js'
 import { TaskQueue } from './queue.js'
+import { saveReview } from '../store/history.js'
+import { getDb } from '../store/db.js'
 
 // Allow self-signed certs for private Gitee deployments
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -18,6 +20,7 @@ export async function createServer(port = 3000) {
   const queue = new TaskQueue(2)
   const gitService = new GitService()
   const reviewer = new Reviewer()
+  getDb() // Initialize history database
 
   // Deduplication: track recently reviewed PRs to prevent webhook loops
   // key: "owner/repo#number:headSha", value: timestamp
@@ -108,6 +111,21 @@ export async function createServer(port = 3000) {
         const criticalCount = report.issues.filter(i => i.severity === 'critical').length
         const shouldBlock = (projectConfig.blockOnCritical ?? true) && criticalCount > 0
         await adapter.setReviewLabel(owner, repo, prNumber, shouldBlock)
+
+        // Save to history
+        try {
+          saveReview({
+            repo: `${owner}/${repo}`,
+            prNumber,
+            baseBranch,
+            headBranch,
+            report,
+            diff,
+            blocked: shouldBlock,
+          })
+        } catch (err) {
+          app.log.warn(`Failed to save review history: ${(err as Error).message}`)
+        }
 
         app.log.info(`Review completed for ${owner}/${repo}#${prNumber}: score ${report.score}, blocked=${shouldBlock}`)
       } catch (err) {
