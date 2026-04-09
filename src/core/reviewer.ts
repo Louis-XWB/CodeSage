@@ -42,9 +42,17 @@ export class Reviewer {
     // Build prompt using prompt-builder
     const prompt = buildPrompt(skillContent, diff, projectConfig ?? {})
 
+    const allowedTools = [
+      'Read', 'Glob', 'Grep',
+      'Bash(git log:*)',
+      'Bash(git diff:*)',
+      'Bash(git show:*)',
+      'Bash(git blame:*)',
+    ].join(',')
+
     const args = [
       '--print',
-      '--allowedTools', 'Read,Glob,Grep',
+      '--allowedTools', allowedTools,
       '-p', prompt,
     ]
 
