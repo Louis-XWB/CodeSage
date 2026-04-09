@@ -6,6 +6,7 @@ import { parseDiff } from '../core/differ.js'
 import { toMarkdown } from '../core/reporter.js'
 import { GiteeAdapter } from '../platforms/gitee.js'
 import { loadConfig } from '../config.js'
+import { loadProjectConfig } from '../config/project-config.js'
 import { TaskQueue } from './queue.js'
 
 // Allow self-signed certs for private Gitee deployments
@@ -56,19 +57,21 @@ export async function createServer(port = 3000) {
         const workDir = gitService.getWorkDir(cloneUrl)
         await gitService.cloneOrFetch(cloneUrl, workDir)
         await gitService.checkout(workDir, headBranch)
+        const projectConfig = loadProjectConfig(workDir)
         const rawDiff = await gitService.getDiff(workDir, baseBranch, headBranch)
         const diff = parseDiff(rawDiff)
 
         const report = await reviewer.review({
           repoPath: workDir,
           diff,
+          projectConfig,
           env: config.apiBaseUrl !== 'https://api.anthropic.com'
             ? { ANTHROPIC_BASE_URL: config.apiBaseUrl, ANTHROPIC_AUTH_TOKEN: config.apiToken }
             : undefined,
         })
 
         // Post summary comment
-        const markdown = toMarkdown(report)
+        const markdown = toMarkdown(report, projectConfig.reportLanguage)
         await adapter.postComment(owner, repo, prNumber, markdown)
 
         // Post line comments for critical/warning issues

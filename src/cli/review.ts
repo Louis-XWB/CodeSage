@@ -7,6 +7,7 @@ import { parsePRUrl } from '../platforms/url-parser.js'
 import { parseDiff } from '../core/differ.js'
 import { toJSON, toMarkdown, toTerminal } from '../core/reporter.js'
 import { loadConfig } from '../config.js'
+import { loadProjectConfig } from '../config/project-config.js'
 import { GiteeAdapter } from '../platforms/gitee.js'
 import fs from 'node:fs'
 
@@ -74,6 +75,8 @@ export function buildReviewAction(deps: ReviewDeps) {
 
     // Checkout head branch and get diff
     await gitService.checkout(repoPath, headBranch)
+    // Load project-level config
+    const projectConfig = loadProjectConfig(repoPath)
     const rawDiff = await gitService.getDiff(repoPath, baseBranch, headBranch)
     const diff = diffParser(rawDiff)
 
@@ -81,6 +84,7 @@ export function buildReviewAction(deps: ReviewDeps) {
     const report = await reviewer.review({
       repoPath,
       diff,
+      projectConfig,
       env: config.apiBaseUrl !== 'https://api.anthropic.com'
         ? { ANTHROPIC_BASE_URL: config.apiBaseUrl, ANTHROPIC_AUTH_TOKEN: config.apiToken }
         : undefined,
@@ -94,7 +98,7 @@ export function buildReviewAction(deps: ReviewDeps) {
         formatted = toJSON(report)
         break
       case 'markdown':
-        formatted = toMarkdown(report)
+        formatted = toMarkdown(report, projectConfig.reportLanguage)
         break
       default:
         formatted = toTerminal(report)
@@ -110,7 +114,7 @@ export function buildReviewAction(deps: ReviewDeps) {
 
     // Writeback to PR
     if (options.comment && adapter) {
-      const markdown = toMarkdown(report)
+      const markdown = toMarkdown(report, projectConfig.reportLanguage)
       await adapter.postComment(owner, repo, prNumber, markdown)
 
       // Post line-level comments for critical/warning issues
