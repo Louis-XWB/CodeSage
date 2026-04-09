@@ -19,6 +19,11 @@ export async function createServer(port = 3000) {
   const gitService = new GitService()
   const reviewer = new Reviewer()
 
+  // Deduplication: track recently reviewed PRs to prevent webhook loops
+  // key: "owner/repo#number:headSha", value: timestamp
+  const reviewedPRs = new Map<string, number>()
+  const DEDUP_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
   app.log.info(`Config: platform=${config.platform}, giteeBaseUrl=${config.giteeBaseUrl}`)
 
   app.get('/health', async () => ({ status: 'ok' }))
@@ -44,7 +49,22 @@ export async function createServer(port = 3000) {
     const prNumber = pr.number as number
     const baseBranch = ((pr.base as Record<string, unknown>).ref) as string
     const headBranch = ((pr.head as Record<string, unknown>).ref) as string
+    const headSha = ((pr.head as Record<string, unknown>).sha) as string || ''
     const cloneUrl = (repository.clone_url ?? repository.html_url ?? repository.ssh_url) as string
+
+    // Dedup: skip if this PR+SHA was reviewed recently
+    const dedupKey = `${fullName}#${prNumber}:${headSha}`
+    const lastReviewed = reviewedPRs.get(dedupKey)
+    if (lastReviewed && Date.now() - lastReviewed < DEDUP_WINDOW_MS) {
+      app.log.info(`Skipping duplicate review for ${dedupKey}`)
+      return reply.code(200).send({ message: 'already reviewed' })
+    }
+    reviewedPRs.set(dedupKey, Date.now())
+
+    // Clean up old entries
+    for (const [key, ts] of reviewedPRs) {
+      if (Date.now() - ts > DEDUP_WINDOW_MS) reviewedPRs.delete(key)
+    }
 
     // Enqueue review task
     queue.enqueue(async () => {
