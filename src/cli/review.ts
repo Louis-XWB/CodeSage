@@ -9,7 +9,10 @@ import { toJSON, toMarkdown, toTerminal } from '../core/reporter.js'
 import { loadConfig } from '../config.js'
 import { loadProjectConfig } from '../config/project-config.js'
 import { GiteeAdapter } from '../platforms/gitee.js'
+import { saveReview } from '../store/history.js'
+import { getDb } from '../store/db.js'
 import fs from 'node:fs'
+import path from 'node:path'
 
 interface ReviewDeps {
   gitService: GitService
@@ -137,6 +140,25 @@ export function buildReviewAction(deps: ReviewDeps) {
         console.log(`BLOCKED: ${criticalCount} critical issue(s) found.`)
         process.exit(1)
       }
+    }
+
+    // Save to history
+    try {
+      getDb()
+      const repoName = owner && repo ? `${owner}/${repo}` : path.basename(repoPath)
+      const saveCriticalCount = report.issues.filter(i => i.severity === 'critical').length
+      const saveBlocked = (projectConfig.blockOnCritical ?? true) && saveCriticalCount > 0
+      saveReview({
+        repo: repoName,
+        prNumber: prNumber || undefined,
+        baseBranch,
+        headBranch,
+        report,
+        diff,
+        blocked: saveBlocked,
+      })
+    } catch (err) {
+      console.warn(`Warning: failed to save review history: ${(err as Error).message}`)
     }
 
     return report
