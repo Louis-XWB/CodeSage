@@ -171,6 +171,7 @@ export class Reviewer {
       const fil = block.match(/"file"\s*:\s*"([^"]+)"/)
       const lin = block.match(/"line"\s*:\s*(\d+)/)
       const com = block.match(/"commit"\s*:\s*"([^"]+)"/)
+      const comMsg = block.match(/"commitMessage"\s*:\s*"((?:[^"\\]|\\.)*)"/)
       const tit = block.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/)
       const desc = block.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/)
       const sug = block.match(/"suggestion"\s*:\s*"((?:[^"\\]|\\.)*)"/)
@@ -182,6 +183,7 @@ export class Reviewer {
           file: fil[1],
           line: lin ? parseInt(lin[1], 10) : undefined,
           commit: com?.[1],
+          commitMessage: comMsg?.[1]?.replace(/\\"/g, '"'),
           title: tit[1].replace(/\\"/g, '"'),
           description: desc[1].replace(/\\"/g, '"'),
           suggestion: sug?.[1]?.replace(/\\"/g, '"'),

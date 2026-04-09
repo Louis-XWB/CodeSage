@@ -27,6 +27,7 @@ export interface ReviewIssue {
   file: string
   line?: number
   commit?: string             // short commit hash that introduced this issue
+  commitMessage?: string      // first ~20 chars of the commit message
   title: string
   description: string
   suggestion?: string

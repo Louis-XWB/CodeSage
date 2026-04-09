@@ -29,7 +29,7 @@
 - 给出具体的修复建议，不要只说"这里有问题"
 - 如果代码质量很好，也要在 summary 中肯定
 - **输出要精简** — description 和 suggestion 各不超过 100 字
-- **标注 commit** — 用 `git blame <file>` 找到引入问题的 commit，填入 issue 的 commit 字段（短 hash，如 abc1234）
+- **标注 commit** — 用 `git blame <file>` 找到引入问题的 commit hash 和 message，填入 commit（短 hash，如 abc1234）和 commitMessage（取前 20 字，如 "feat: add upload endp..."）
 
 ## 审查维度
 
@@ -53,6 +53,7 @@
       "file": "src/example.ts",
       "line": 42,
       "commit": "abc1234",
+      "commitMessage": "feat: add upload endpoint",
       "title": "简短标题（10字以内）",
       "description": "问题描述（100字以内）",
       "suggestion": "修复建议（100字以内）"

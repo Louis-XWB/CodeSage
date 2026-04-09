@@ -124,7 +124,10 @@ export function toMarkdown(report: ReviewReport, reportLanguage?: 'zh-CN' | 'en'
 
       lines.push(`### ${num}. ${catIcon} ${issue.title}`)
       lines.push('')
-      const commitTag = issue.commit ? ` · \`${issue.commit}\`` : ''
+      const commitInfo = issue.commit
+        ? ` · \`${issue.commit}\`${issue.commitMessage ? ` *${issue.commitMessage}*` : ''}`
+        : ''
+      const commitTag = commitInfo
       lines.push(`> \`${location}\` · ${issue.category}${commitTag}`)
       lines.push('')
       lines.push(issue.description)
