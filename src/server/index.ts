@@ -44,7 +44,6 @@ export async function createServer(port = 3000) {
     const prNumber = pr.number as number
     const baseBranch = ((pr.base as Record<string, unknown>).ref) as string
     const headBranch = ((pr.head as Record<string, unknown>).ref) as string
-    const headSha = ((pr.head as Record<string, unknown>).sha) as string | undefined
     const cloneUrl = (repository.clone_url ?? repository.html_url ?? repository.ssh_url) as string
 
     // Enqueue review task
@@ -85,19 +84,10 @@ export async function createServer(port = 3000) {
           }
         }
 
-        // Set commit status (block or pass)
+        // Set PR label (block or pass)
         const criticalCount = report.issues.filter(i => i.severity === 'critical').length
         const shouldBlock = (projectConfig.blockOnCritical ?? true) && criticalCount > 0
-        const commitSha = headSha || ''
-        if (commitSha) {
-          await adapter.setCommitStatus(
-            owner, repo, commitSha,
-            shouldBlock ? 'failure' : 'success',
-            shouldBlock
-              ? `CodeSage: ${criticalCount} critical issue(s) found`
-              : `CodeSage: score ${report.score}/100, no critical issues`,
-          )
-        }
+        await adapter.setReviewLabel(owner, repo, prNumber, shouldBlock)
 
         app.log.info(`Review completed for ${owner}/${repo}#${prNumber}: score ${report.score}, blocked=${shouldBlock}`)
       } catch (err) {

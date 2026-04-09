@@ -62,26 +62,33 @@ export class GiteeAdapter implements PlatformAdapter {
     })
   }
 
-  async setCommitStatus(
+  async setReviewLabel(
     owner: string,
     repo: string,
-    sha: string,
-    state: 'success' | 'failure' | 'pending',
-    description: string,
+    prNumber: number,
+    blocked: boolean,
   ): Promise<void> {
+    const addLabel = blocked ? 'CodeSage-BLOCKED' : 'CodeSage-PASSED'
+    const removeLabel = blocked ? 'CodeSage-PASSED' : 'CodeSage-BLOCKED'
+
     try {
-      await this.request(this.apiUrl(`/repos/${owner}/${repo}/statuses/${sha}`), {
+      // Remove the opposite label first
+      await fetch(this.apiUrl(`/repos/${owner}/${repo}/pulls/${prNumber}/labels/${encodeURIComponent(removeLabel)}`), {
+        method: 'DELETE',
+        headers: this.headers,
+      })
+    } catch {
+      // Label might not exist, ignore
+    }
+
+    try {
+      // Add the current label
+      await this.request(this.apiUrl(`/repos/${owner}/${repo}/pulls/${prNumber}/labels`), {
         method: 'POST',
-        body: JSON.stringify({
-          state,
-          target_url: '',
-          description,
-          context: 'CodeSage',
-        }),
+        body: JSON.stringify([addLabel]),
       })
     } catch (err) {
-      // Don't fail the review if commit status API is not supported
-      console.warn(`Failed to set commit status: ${(err as Error).message}`)
+      console.warn(`Failed to set PR label: ${(err as Error).message}`)
     }
   }
 

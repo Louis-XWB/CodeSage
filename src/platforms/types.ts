@@ -20,11 +20,10 @@ export interface PlatformAdapter {
     line: number,
     body: string,
   ): Promise<void>
-  setCommitStatus(
+  setReviewLabel(
     owner: string,
     repo: string,
-    sha: string,
-    state: 'success' | 'failure' | 'pending',
-    description: string,
+    prNumber: number,
+    blocked: boolean,
   ): Promise<void>
 }
