@@ -6,6 +6,8 @@
 
 与传统的 diff 审查工具不同，CodeSage 利用 Claude Code CLI 主动探索你的整个代码库——阅读文件、搜索引用关系、理解调用链——然后给出结构化的审查反馈。
 
+![CodeSage Review Report](docs/screenshots/review-report.png)
+
 ## 特性
 
 - **全工程审查** — 不只看 diff，主动探索引用关系和调用链

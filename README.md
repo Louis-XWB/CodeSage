@@ -6,6 +6,8 @@ AI code review engine powered by Claude Code. Full-project-aware review for Pull
 
 Unlike traditional diff-based review tools, CodeSage leverages Claude Code CLI to explore your entire codebase — reading files, searching for references, and understanding call chains — before providing structured review feedback.
 
+![CodeSage Review Report](docs/screenshots/review-report.png)
+
 ## Features
 
 - **Full-project review** — Goes beyond diff, explores references and call chains across the entire codebase
