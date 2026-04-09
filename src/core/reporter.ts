@@ -63,10 +63,21 @@ export function toMarkdown(report: ReviewReport, reportLanguage?: 'zh-CN' | 'en'
   lines.push('')
   lines.push(`<br>`)
   lines.push('')
+  // Verdict badge
+  const hasCritical = criticalCount > 0
+  const verdictBadge = hasCritical
+    ? `<img src="https://img.shields.io/badge/Verdict-BLOCKED-e74c3c?style=for-the-badge&logo=stopsign&logoColor=white" />`
+    : `<img src="https://img.shields.io/badge/Verdict-PASSED-2ecc71?style=for-the-badge&logo=checkmarx&logoColor=white" />`
+
+  lines.push(verdictBadge)
   lines.push(`<img src="https://img.shields.io/badge/Score-${report.score}%2F100-${gradeColor}?style=for-the-badge&logo=target&logoColor=white" />`)
   lines.push(`<img src="https://img.shields.io/badge/Grade-${scoreGrade}-${gradeColor}?style=for-the-badge&logo=checkmarx&logoColor=white" />`)
   lines.push(`<img src="https://img.shields.io/badge/Issues-${report.issues.length}-blue?style=for-the-badge&logo=bugsnag&logoColor=white" />`)
   lines.push('')
+  if (hasCritical) {
+    lines.push(`### 🚫 ${(reportLanguage ?? 'zh-CN') === 'zh-CN' ? '发现严重问题，请修复后再合并' : 'Critical issues found — fix before merging'}`)
+    lines.push('')
+  }
   lines.push(`</div>`)
   lines.push('')
 

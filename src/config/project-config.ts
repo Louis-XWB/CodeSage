@@ -14,6 +14,7 @@ export interface ProjectConfig {
   reportLanguage?: 'zh-CN' | 'en'
   extraPrompt?: string
   skill?: string              // path to custom skill file relative to repo root
+  blockOnCritical?: boolean   // block PR merge when critical issues found (default: true)
 }
 
 export function loadProjectConfig(repoPath: string): ProjectConfig {
@@ -37,6 +38,7 @@ export function loadProjectConfig(repoPath: string): ProjectConfig {
   if (parsed.reportLanguage === 'zh-CN' || parsed.reportLanguage === 'en') config.reportLanguage = parsed.reportLanguage
   if (typeof parsed.extraPrompt === 'string') config.extraPrompt = parsed.extraPrompt
   if (typeof parsed.skill === 'string') config.skill = parsed.skill
+  if (typeof parsed.blockOnCritical === 'boolean') config.blockOnCritical = parsed.blockOnCritical
 
   return config
 }

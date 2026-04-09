@@ -39,6 +39,7 @@ export function buildReviewAction(deps: ReviewDeps) {
     let repoPath: string
     let baseBranch: string
     let headBranch: string
+    let headSha: string = ''
     let adapter: PlatformAdapter | null = null
 
     if (options.pr) {
@@ -59,6 +60,7 @@ export function buildReviewAction(deps: ReviewDeps) {
       repoPath = gitService.getWorkDir(prInfo.repoCloneUrl)
       baseBranch = prInfo.baseBranch
       headBranch = prInfo.headBranch
+      headSha = prInfo.headSha
 
       await gitService.cloneOrFetch(prInfo.repoCloneUrl, repoPath)
     } else if (options.repo && options.base && options.head) {
@@ -127,7 +129,24 @@ export function buildReviewAction(deps: ReviewDeps) {
         }
       }
 
+      // Set commit status
+      const criticalCount = report.issues.filter(i => i.severity === 'critical').length
+      const shouldBlock = (projectConfig.blockOnCritical ?? true) && criticalCount > 0
+      if (headSha) {
+        await adapter.setCommitStatus(
+          owner, repo, headSha,
+          shouldBlock ? 'failure' : 'success',
+          shouldBlock
+            ? `CodeSage: ${criticalCount} critical issue(s) found`
+            : `CodeSage: score ${report.score}/100, no critical issues`,
+        )
+      }
+
       console.log('Review comments posted to PR.')
+      if (shouldBlock) {
+        console.log(`BLOCKED: ${criticalCount} critical issue(s) found.`)
+        process.exit(1)
+      }
     }
 
     return report

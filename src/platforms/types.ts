@@ -3,6 +3,7 @@ export interface PRInfo {
   description: string
   baseBranch: string
   headBranch: string
+  headSha: string
   repoCloneUrl: string
   author: string
   files: string[]
@@ -18,5 +19,12 @@ export interface PlatformAdapter {
     file: string,
     line: number,
     body: string,
+  ): Promise<void>
+  setCommitStatus(
+    owner: string,
+    repo: string,
+    sha: string,
+    state: 'success' | 'failure' | 'pending',
+    description: string,
   ): Promise<void>
 }

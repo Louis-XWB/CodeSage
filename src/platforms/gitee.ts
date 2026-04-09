@@ -48,6 +48,7 @@ export class GiteeAdapter implements PlatformAdapter {
       description: pr.body ?? '',
       baseBranch: pr.base.ref,
       headBranch: pr.head.ref,
+      headSha: pr.head.sha,
       repoCloneUrl: pr.base.repo.clone_url ?? pr.base.repo.html_url ?? pr.base.repo.ssh_url,
       author: pr.user.login,
       files: files.map((f: { filename: string }) => f.filename),
@@ -59,6 +60,29 @@ export class GiteeAdapter implements PlatformAdapter {
       method: 'POST',
       body: JSON.stringify({ body }),
     })
+  }
+
+  async setCommitStatus(
+    owner: string,
+    repo: string,
+    sha: string,
+    state: 'success' | 'failure' | 'pending',
+    description: string,
+  ): Promise<void> {
+    try {
+      await this.request(this.apiUrl(`/repos/${owner}/${repo}/statuses/${sha}`), {
+        method: 'POST',
+        body: JSON.stringify({
+          state,
+          target_url: '',
+          description,
+          context: 'CodeSage',
+        }),
+      })
+    } catch (err) {
+      // Don't fail the review if commit status API is not supported
+      console.warn(`Failed to set commit status: ${(err as Error).message}`)
+    }
   }
 
   async postLineComment(
