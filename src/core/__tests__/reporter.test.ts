@@ -60,7 +60,6 @@ describe('reporter', () => {
 
     it('groups issues by severity', () => {
       const md = toMarkdown(SAMPLE_REPORT)
-      expect(md).toContain('Critical')
       expect(md).toContain('SQL injection risk')
       expect(md).toContain('src/auth.ts:15')
     })
@@ -68,6 +67,22 @@ describe('reporter', () => {
     it('includes suggestions section', () => {
       const md = toMarkdown(SAMPLE_REPORT)
       expect(md).toContain('Add input validation')
+    })
+  })
+
+  describe('toMarkdown i18n', () => {
+    it('uses English labels when reportLanguage is en', () => {
+      const md = toMarkdown(SAMPLE_REPORT, 'en')
+      expect(md).toContain('Critical Issues')
+      expect(md).toContain('Recommendations')
+      expect(md).toContain('Issue Dashboard')
+    })
+
+    it('uses Chinese labels when reportLanguage is zh-CN', () => {
+      const md = toMarkdown(SAMPLE_REPORT, 'zh-CN')
+      expect(md).toContain('严重问题')
+      expect(md).toContain('改进建议')
+      expect(md).toContain('问题总览')
     })
   })
 

@@ -5,7 +5,47 @@ export function toJSON(report: ReviewReport): string {
   return JSON.stringify(report, null, 2)
 }
 
-export function toMarkdown(report: ReviewReport): string {
+const i18n = {
+  'zh-CN': {
+    subtitle: 'AI 代码审查报告',
+    summary: '📋 概要',
+    dashboard: '📊 问题总览',
+    critical: '严重问题',
+    criticalDesc: '合并前必须修复',
+    criticalStatus: '🚫 阻断',
+    warning: '警告',
+    warningDesc: '建议修复',
+    warningStatus: '⚠️ 需审查',
+    info: '建议',
+    infoDesc: '可选改进',
+    infoStatus: '💬 可选',
+    recommendations: '📝 改进建议',
+    footer: '开源 AI 代码审查',
+    fix: '💡 修复建议：',
+    filesAnalyzed: '个文件已分析',
+  },
+  en: {
+    subtitle: 'AI-Powered Code Review Report',
+    summary: '📋 Summary',
+    dashboard: '📊 Issue Dashboard',
+    critical: 'Critical Issues',
+    criticalDesc: 'Must fix before merge',
+    criticalStatus: '🚫 Blocking',
+    warning: 'Warnings',
+    warningDesc: 'Should fix',
+    warningStatus: '⚠️ Review',
+    info: 'Suggestions',
+    infoDesc: 'Nice to have',
+    infoStatus: '💬 Optional',
+    recommendations: '📝 Recommendations',
+    footer: 'Open Source AI Code Review',
+    fix: '💡 Fix:',
+    filesAnalyzed: 'files analyzed',
+  },
+} as const
+
+export function toMarkdown(report: ReviewReport, reportLanguage?: 'zh-CN' | 'en'): string {
+  const t = i18n[reportLanguage ?? 'zh-CN']
   const lines: string[] = []
 
   const criticalCount = report.issues.filter(i => i.severity === 'critical').length
@@ -19,7 +59,7 @@ export function toMarkdown(report: ReviewReport): string {
   lines.push(`<div align="center">`)
   lines.push('')
   lines.push(`# 🔮 CodeSage`)
-  lines.push(`**AI-Powered Code Review Report**`)
+  lines.push(`**${t.subtitle}**`)
   lines.push('')
   lines.push(`<br>`)
   lines.push('')
@@ -33,7 +73,7 @@ export function toMarkdown(report: ReviewReport): string {
   // ── Summary ──
   lines.push(`<table><tr><td>`)
   lines.push('')
-  lines.push(`**📋 Summary**`)
+  lines.push(`**${t.summary}**`)
   lines.push('')
   lines.push(report.summary)
   lines.push('')
@@ -42,22 +82,22 @@ export function toMarkdown(report: ReviewReport): string {
 
   // ── Dashboard ──
   if (report.issues.length > 0) {
-    lines.push(`## 📊 Issue Dashboard`)
+    lines.push(`## ${t.dashboard}`)
     lines.push('')
     lines.push(`| | Category | Count | Status |`)
     lines.push(`|:---:|:---|:---:|:---|`)
-    if (criticalCount > 0) lines.push(`| 🔴 | **Critical** — Must fix before merge | **${criticalCount}** | 🚫 Blocking |`)
-    if (warningCount > 0) lines.push(`| 🟡 | **Warning** — Should fix | **${warningCount}** | ⚠️ Review |`)
-    if (infoCount > 0) lines.push(`| 🔵 | **Info** — Nice to have | **${infoCount}** | 💬 Optional |`)
+    if (criticalCount > 0) lines.push(`| 🔴 | **${t.critical}** — ${t.criticalDesc} | **${criticalCount}** | ${t.criticalStatus} |`)
+    if (warningCount > 0) lines.push(`| 🟡 | **${t.warning}** — ${t.warningDesc} | **${warningCount}** | ${t.warningStatus} |`)
+    if (infoCount > 0) lines.push(`| 🔵 | **${t.info}** — ${t.infoDesc} | **${infoCount}** | ${t.infoStatus} |`)
     lines.push('')
   }
 
   // ── Issues ──
   const severityOrder: ReviewIssue['severity'][] = ['critical', 'warning', 'info']
   const severityConfig: Record<string, { icon: string; label: string; tag: string }> = {
-    critical: { icon: '🔴', label: 'Critical Issues', tag: 'e74c3c' },
-    warning: { icon: '🟡', label: 'Warnings', tag: 'f39c12' },
-    info: { icon: '🔵', label: 'Suggestions', tag: '3498db' },
+    critical: { icon: '🔴', label: t.critical, tag: 'e74c3c' },
+    warning: { icon: '🟡', label: t.warning, tag: 'f39c12' },
+    info: { icon: '🔵', label: t.info, tag: '3498db' },
   }
 
   const categoryIcon: Record<string, string> = {
@@ -91,7 +131,7 @@ export function toMarkdown(report: ReviewReport): string {
       if (issue.suggestion) {
         lines.push('')
         lines.push(`<blockquote>`)
-        lines.push(`<b>💡 Fix:</b> ${issue.suggestion}`)
+        lines.push(`<b>${t.fix}</b> ${issue.suggestion}`)
         lines.push(`</blockquote>`)
       }
       lines.push('')
@@ -100,7 +140,7 @@ export function toMarkdown(report: ReviewReport): string {
 
   // ── Recommendations ──
   if (report.suggestions.length > 0) {
-    lines.push(`## 📝 Recommendations`)
+    lines.push(`## ${t.recommendations}`)
     lines.push('')
     for (let i = 0; i < report.suggestions.length; i++) {
       const s = report.suggestions[i]
@@ -117,9 +157,9 @@ export function toMarkdown(report: ReviewReport): string {
   lines.push(`<div align="center">`)
   lines.push('')
   lines.push(`<sub>`)
-  lines.push(`🔮 Reviewed by <b>CodeSage</b> · ${report.metadata.model || 'AI Engine'} · ${report.metadata.filesReviewed} files analyzed`)
+  lines.push(`🔮 Reviewed by <b>CodeSage</b> · ${report.metadata.model || 'AI Engine'} · ${report.metadata.filesReviewed} ${t.filesAnalyzed}`)
   lines.push(`<br>`)
-  lines.push(`<a href="https://github.com/Louis-XWB/CodeSage">GitHub</a> · Open Source AI Code Review`)
+  lines.push(`<a href="https://github.com/Louis-XWB/CodeSage">GitHub</a> · ${t.footer}`)
   lines.push(`</sub>`)
   lines.push('')
   lines.push(`</div>`)
