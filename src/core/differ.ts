@@ -1,5 +1,7 @@
 // src/core/differ.ts
 import type { DiffResult, ChangedFile, DiffHunk } from '../types.js'
+import picomatch from 'picomatch'
+import type { ProjectConfig } from '../config/project-config.js'
 
 export function parseDiff(raw: string): DiffResult {
   if (!raw.trim()) {
@@ -79,4 +81,50 @@ export function parseDiff(raw: string): DiffResult {
     files,
     stats: { additions, deletions, filesChanged: files.length },
   }
+}
+
+export function filterDiff(diff: DiffResult, config: Pick<ProjectConfig, 'include' | 'exclude' | 'maxFiles'>): DiffResult {
+  let files = [...diff.files]
+
+  if (config.include && config.include.length > 0) {
+    const matchers = config.include.map(p => {
+      const pattern = p.endsWith('/') ? `${p}**` : p
+      return picomatch(pattern)
+    })
+    files = files.filter(f => matchers.some(m => m(f.path)))
+  }
+
+  if (config.exclude && config.exclude.length > 0) {
+    const matchers = config.exclude.map(p => {
+      const pattern = p.endsWith('/') ? `${p}**` : p
+      return picomatch(pattern)
+    })
+    files = files.filter(f => !matchers.some(m => m(f.path)))
+  }
+
+  if (config.maxFiles && files.length > config.maxFiles) {
+    files.sort((a, b) => {
+      const aAdds = a.hunks.reduce((sum, h) => sum + h.newLines, 0)
+      const bAdds = b.hunks.reduce((sum, h) => sum + h.newLines, 0)
+      return bAdds - aAdds
+    })
+    files = files.slice(0, config.maxFiles)
+  }
+
+  let additions = 0
+  let deletions = 0
+  for (const file of files) {
+    for (const hunk of file.hunks) {
+      let hunkAdds = 0
+      let hunkDels = 0
+      for (const line of hunk.content.split('\n')) {
+        if (line.startsWith('+') && !line.startsWith('+++')) hunkAdds++
+        if (line.startsWith('-') && !line.startsWith('---')) hunkDels++
+      }
+      additions += Math.min(hunkAdds, hunk.newLines)
+      deletions += Math.min(hunkDels, hunk.oldLines)
+    }
+  }
+
+  return { files, stats: { additions, deletions, filesChanged: files.length } }
 }

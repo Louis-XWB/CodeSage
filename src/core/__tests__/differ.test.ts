@@ -1,6 +1,8 @@
 // src/core/__tests__/differ.test.ts
 import { describe, it, expect } from 'vitest'
 import { parseDiff } from '../differ.js'
+import { filterDiff } from '../differ.js'
+import type { DiffResult } from '../../types.js'
 
 const SAMPLE_DIFF = `diff --git a/src/foo.ts b/src/foo.ts
 index abc1234..def5678 100644
@@ -81,5 +83,46 @@ index abc1234..def5678 100644
     const result = parseDiff(renameDiff)
     expect(result.files[0].status).toBe('renamed')
     expect(result.files[0].path).toBe('src/new-name.ts')
+  })
+})
+
+describe('filterDiff', () => {
+  const baseDiff: DiffResult = {
+    files: [
+      { path: 'src/app.ts', status: 'modified', hunks: [{ oldStart: 1, oldLines: 3, newStart: 1, newLines: 5, content: '+line1\n+line2' }] },
+      { path: 'src/utils.ts', status: 'modified', hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 3, content: '+a\n+b' }] },
+      { path: 'src/app.test.ts', status: 'added', hunks: [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 10, content: '+test' }] },
+      { path: 'docs/readme.md', status: 'modified', hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, content: '+doc' }] },
+      { path: 'dist/bundle.js', status: 'modified', hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, content: '+bundle' }] },
+    ],
+    stats: { additions: 16, deletions: 0, filesChanged: 5 },
+  }
+
+  it('returns all files when no include/exclude', () => {
+    const result = filterDiff(baseDiff, {})
+    expect(result.files).toHaveLength(5)
+  })
+
+  it('filters by include', () => {
+    const result = filterDiff(baseDiff, { include: ['src/'] })
+    expect(result.files.map(f => f.path)).toEqual(['src/app.ts', 'src/utils.ts', 'src/app.test.ts'])
+    expect(result.stats.filesChanged).toBe(3)
+  })
+
+  it('filters by exclude', () => {
+    const result = filterDiff(baseDiff, { exclude: ['**/*.test.ts', 'dist/'] })
+    expect(result.files.map(f => f.path)).toEqual(['src/app.ts', 'src/utils.ts', 'docs/readme.md'])
+  })
+
+  it('applies include then exclude', () => {
+    const result = filterDiff(baseDiff, { include: ['src/'], exclude: ['**/*.test.ts'] })
+    expect(result.files.map(f => f.path)).toEqual(['src/app.ts', 'src/utils.ts'])
+  })
+
+  it('truncates by maxFiles sorted by additions desc', () => {
+    const result = filterDiff(baseDiff, { maxFiles: 2 })
+    expect(result.files).toHaveLength(2)
+    expect(result.files[0].path).toBe('src/app.test.ts')
+    expect(result.files[1].path).toBe('src/app.ts')
   })
 })
