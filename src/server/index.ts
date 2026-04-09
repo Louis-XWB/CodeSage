@@ -64,6 +64,8 @@ export async function createServer(port = 3000) {
         const report = await reviewer.review({
           repoPath: workDir,
           diff,
+          baseBranch,
+          headBranch,
           projectConfig,
           env: config.apiBaseUrl !== 'https://api.anthropic.com'
             ? { ANTHROPIC_BASE_URL: config.apiBaseUrl, ANTHROPIC_AUTH_TOKEN: config.apiToken }

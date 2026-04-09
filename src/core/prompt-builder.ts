@@ -13,7 +13,12 @@ const MAX_LINES_PER_FILE = 50
 // Max total chars for the entire change summary
 const MAX_SUMMARY_CHARS = 15000
 
-export function buildPrompt(skillContent: string, diff: DiffResult, config: ProjectConfig): string {
+export interface PromptContext {
+  baseBranch?: string
+  headBranch?: string
+}
+
+export function buildPrompt(skillContent: string, diff: DiffResult, config: ProjectConfig, context?: PromptContext): string {
   const sections: string[] = []
 
   // 1. Skill instructions
@@ -41,7 +46,22 @@ export function buildPrompt(skillContent: string, diff: DiffResult, config: Proj
     sections.push('---\n\n## 项目配置\n\n' + configInstructions.join('\n\n'))
   }
 
-  // 3. File list overview
+  // 3. Git context — tell AI which branches/commits to review
+  if (context?.baseBranch && context?.headBranch) {
+    const gitSection = [
+      `## Git 信息`,
+      ``,
+      `- 基准分支: \`${context.baseBranch}\``,
+      `- PR 分支: \`${context.headBranch}\``,
+      ``,
+      `请使用以下命令查看本次 PR 的完整信息：`,
+      `- \`git log ${context.baseBranch}..${context.headBranch} --oneline\` — 查看本次 PR 包含的所有 commit`,
+      `- \`git diff ${context.baseBranch}...${context.headBranch}\` — 查看完整代码变更`,
+    ].join('\n')
+    sections.push('---\n\n' + gitSection)
+  }
+
+  // 4. File list overview
   const fileList = diff.files.map(f => {
     const adds = countAdds(f)
     const dels = countDels(f)

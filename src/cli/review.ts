@@ -84,6 +84,8 @@ export function buildReviewAction(deps: ReviewDeps) {
     const report = await reviewer.review({
       repoPath,
       diff,
+      baseBranch,
+      headBranch,
       projectConfig,
       env: config.apiBaseUrl !== 'https://api.anthropic.com'
         ? { ANTHROPIC_BASE_URL: config.apiBaseUrl, ANTHROPIC_AUTH_TOKEN: config.apiToken }

@@ -10,6 +10,8 @@ import type { ProjectConfig } from '../config/project-config.js'
 export interface ReviewOptions {
   repoPath: string
   diff: DiffResult
+  baseBranch?: string
+  headBranch?: string
   skillPath?: string
   env?: Record<string, string>
   projectConfig?: ProjectConfig
@@ -40,7 +42,10 @@ export class Reviewer {
     const diff = projectConfig ? filterDiff(options.diff, projectConfig) : options.diff
 
     // Build prompt using prompt-builder
-    const prompt = buildPrompt(skillContent, diff, projectConfig ?? {})
+    const prompt = buildPrompt(skillContent, diff, projectConfig ?? {}, {
+      baseBranch: options.baseBranch,
+      headBranch: options.headBranch,
+    })
 
     const allowedTools = [
       'Read', 'Glob', 'Grep',
