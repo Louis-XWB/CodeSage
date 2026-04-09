@@ -112,8 +112,8 @@ export async function createServer(port = 3000) {
         const shouldBlock = (projectConfig.blockOnCritical ?? true) && criticalCount > 0
         await adapter.setReviewLabel(owner, repo, prNumber, shouldBlock)
 
-        // Save to history
-        try {
+        // Save to history (configurable, default: true)
+        if (projectConfig.saveHistory !== false) try {
           saveReview({
             repo: `${owner}/${repo}`,
             prNumber,

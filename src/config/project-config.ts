@@ -15,6 +15,7 @@ export interface ProjectConfig {
   extraPrompt?: string
   skill?: string              // path to custom skill file relative to repo root
   blockOnCritical?: boolean   // block PR merge when critical issues found (default: true)
+  saveHistory?: boolean       // save review results to local SQLite (default: true)
 }
 
 export function loadProjectConfig(repoPath: string): ProjectConfig {
@@ -39,6 +40,7 @@ export function loadProjectConfig(repoPath: string): ProjectConfig {
   if (typeof parsed.extraPrompt === 'string') config.extraPrompt = parsed.extraPrompt
   if (typeof parsed.skill === 'string') config.skill = parsed.skill
   if (typeof parsed.blockOnCritical === 'boolean') config.blockOnCritical = parsed.blockOnCritical
+  if (typeof parsed.saveHistory === 'boolean') config.saveHistory = parsed.saveHistory
 
   return config
 }

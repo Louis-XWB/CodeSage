@@ -142,8 +142,8 @@ export function buildReviewAction(deps: ReviewDeps) {
       }
     }
 
-    // Save to history
-    try {
+    // Save to history (configurable, default: true)
+    if (projectConfig.saveHistory !== false) try {
       getDb()
       const repoName = owner && repo ? `${owner}/${repo}` : path.basename(repoPath)
       const saveCriticalCount = report.issues.filter(i => i.severity === 'critical').length
