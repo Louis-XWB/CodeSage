@@ -99,14 +99,21 @@ export class Reviewer {
           }
         }
       } catch {
-        // Fall through to raw fallback
+        // JSON parse failed — try to salvage truncated JSON
+        console.warn('Warning: JSON parse failed, attempting to salvage truncated output')
       }
     }
 
-    // Fallback: model returned non-JSON (e.g. Markdown), wrap it as a report
+    // Strategy: extract fields from truncated/broken JSON via regex
+    const salvaged = this.salvagedFromPartialJSON(trimmed)
+    if (salvaged) {
+      return salvaged
+    }
+
+    // Final fallback: wrap raw text as report
     console.warn('Warning: AI returned non-JSON output, wrapping as raw report')
     return {
-      summary: trimmed.slice(0, 200),
+      summary: trimmed.slice(0, 300).replace(/[{}"]/g, '').trim(),
       score: 0,
       issues: [],
       suggestions: [],
@@ -115,8 +122,59 @@ export class Reviewer {
         duration: 0,
         filesReviewed: 0,
       },
-      rawOutput: trimmed,
-    } as ReviewReport & { rawOutput: string }
+    }
+  }
+
+  private salvagedFromPartialJSON(text: string): ReviewReport | null {
+    // Try to extract summary and score even from truncated JSON
+    const summaryMatch = text.match(/"summary"\s*:\s*"((?:[^"\\]|\\.)*)"/s)
+    const scoreMatch = text.match(/"score"\s*:\s*(\d+)/)
+
+    if (!summaryMatch || !scoreMatch) return null
+
+    const summary = summaryMatch[1].replace(/\\n/g, ' ').replace(/\\"/g, '"')
+    const score = parseInt(scoreMatch[1], 10)
+
+    // Try to extract complete issue objects
+    const issues: ReviewReport['issues'] = []
+    const issueRegex = /\{\s*"severity"\s*:\s*"(critical|warning|info)"\s*,\s*"category"\s*:\s*"(\w+)"\s*,\s*"file"\s*:\s*"([^"]+)"\s*(?:,\s*"line"\s*:\s*(\d+))?\s*,\s*"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"description"\s*:\s*"((?:[^"\\]|\\.)*)"\s*(?:,\s*"suggestion"\s*:\s*"((?:[^"\\]|\\.)*)")?\s*\}/gs
+    let match
+    while ((match = issueRegex.exec(text)) !== null) {
+      issues.push({
+        severity: match[1] as 'critical' | 'warning' | 'info',
+        category: match[2] as 'bug' | 'security' | 'performance' | 'style' | 'design',
+        file: match[3],
+        line: match[4] ? parseInt(match[4], 10) : undefined,
+        title: match[5].replace(/\\"/g, '"'),
+        description: match[6].replace(/\\"/g, '"'),
+        suggestion: match[7]?.replace(/\\"/g, '"'),
+      })
+    }
+
+    // Try to extract suggestions
+    const suggestions: ReviewReport['suggestions'] = []
+    const sugRegex = /\{\s*"title"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"description"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/gs
+    // Only look in the "suggestions" section to avoid false matches
+    const sugSection = text.match(/"suggestions"\s*:\s*\[([\s\S]*?)(?:\]|$)/)
+    if (sugSection) {
+      let sugMatch
+      while ((sugMatch = sugRegex.exec(sugSection[1])) !== null) {
+        suggestions.push({
+          title: sugMatch[1].replace(/\\"/g, '"'),
+          description: sugMatch[2].replace(/\\"/g, '"'),
+        })
+      }
+    }
+
+    console.warn(`Salvaged from truncated JSON: score=${score}, issues=${issues.length}, suggestions=${suggestions.length}`)
+
+    return {
+      summary,
+      score,
+      issues,
+      suggestions,
+      metadata: { model: 'unknown', duration: 0, filesReviewed: 0 },
+    }
   }
 
   private extractJSON(text: string): string | null {

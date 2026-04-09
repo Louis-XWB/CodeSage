@@ -34,15 +34,27 @@ export function buildPrompt(skillContent: string, diff: DiffResult, config: Proj
     sections.push('---\n\n## 项目配置\n\n' + configInstructions.join('\n\n'))
   }
 
+  // Build diff content with size limit to avoid output truncation
+  const MAX_DIFF_CHARS = 30000
   const diffLines: string[] = []
   diffLines.push(`Files changed: ${diff.stats.filesChanged} (+${diff.stats.additions} -${diff.stats.deletions})`)
   diffLines.push('')
+  let totalChars = 0
+  let truncated = false
   for (const file of diff.files) {
-    diffLines.push(`[${file.status}] ${file.path}`)
-    for (const hunk of file.hunks) {
-      diffLines.push(hunk.content)
+    const fileHeader = `[${file.status}] ${file.path}`
+    const fileContent = file.hunks.map(h => h.content).join('\n')
+    const fileBlock = fileHeader + '\n' + fileContent + '\n'
+
+    if (totalChars + fileBlock.length > MAX_DIFF_CHARS) {
+      truncated = true
+      break
     }
-    diffLines.push('')
+    diffLines.push(fileBlock)
+    totalChars += fileBlock.length
+  }
+  if (truncated) {
+    diffLines.push(`\n... (diff truncated, remaining files omitted to stay within context limit)`)
   }
 
   sections.push('---\n\n以下是本次 PR 的变更内容：\n\n' + diffLines.join('\n'))
