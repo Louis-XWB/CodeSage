@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Reviewer } from '../reviewer.js'
 import type { DiffResult, ReviewReport } from '../../types.js'
+import type { ProjectConfig } from '../../config/project-config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REAL_SKILL = path.resolve(__dirname, '..', '..', 'skills', 'review.md')
@@ -95,5 +96,29 @@ describe('Reviewer', () => {
         }),
       }),
     )
+  })
+
+  it('passes projectConfig to prompt builder', async () => {
+    const { spawn } = await import('node:child_process')
+    const reviewer = new Reviewer()
+    const projectConfig: ProjectConfig = {
+      language: 'dart',
+      focus: { security: 'high' },
+      extraPrompt: 'Check dispose calls.',
+    }
+    await reviewer.review({
+      repoPath: '/tmp/test-repo',
+      diff: sampleDiff,
+      skillPath: REAL_SKILL,
+      projectConfig,
+    })
+
+    const spawnCall = (spawn as ReturnType<typeof vi.fn>).mock.calls.at(-1)
+    const args = spawnCall?.[0] === 'claude' ? spawnCall[1] : []
+    const promptIdx = args.indexOf('-p')
+    const promptArg = promptIdx >= 0 ? args[promptIdx + 1] as string : ''
+    expect(promptArg).toContain('dart')
+    expect(promptArg).toContain('security')
+    expect(promptArg).toContain('Check dispose calls.')
   })
 })

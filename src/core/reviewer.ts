@@ -3,12 +3,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DiffResult, ReviewReport } from '../types.js'
+import { buildPrompt } from './prompt-builder.js'
+import { filterDiff } from './differ.js'
+import type { ProjectConfig } from '../config/project-config.js'
 
 export interface ReviewOptions {
   repoPath: string
   diff: DiffResult
   skillPath?: string
   env?: Record<string, string>
+  projectConfig?: ProjectConfig
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -16,14 +20,16 @@ const DEFAULT_SKILL = path.resolve(__dirname, '..', 'skills', 'review.md')
 
 export class Reviewer {
   async review(options: ReviewOptions): Promise<ReviewReport> {
-    const { repoPath, diff, env } = options
+    const { repoPath, env, projectConfig } = options
     const skillPath = options.skillPath ?? DEFAULT_SKILL
 
-    // Read skill instructions
     const skillContent = fs.readFileSync(skillPath, 'utf-8')
-    const diffSummary = this.buildDiffSummary(diff)
 
-    const prompt = `${skillContent}\n\n---\n\n以下是本次 PR 的变更内容：\n\n${diffSummary}`
+    // Filter diff if config has include/exclude/maxFiles
+    const diff = projectConfig ? filterDiff(options.diff, projectConfig) : options.diff
+
+    // Build prompt using prompt-builder
+    const prompt = buildPrompt(skillContent, diff, projectConfig ?? {})
 
     const args = [
       '--print',
@@ -33,20 +39,6 @@ export class Reviewer {
 
     const output = await this.spawnClaude(args, repoPath, env)
     return this.parseOutput(output)
-  }
-
-  private buildDiffSummary(diff: DiffResult): string {
-    const lines: string[] = []
-    lines.push(`Files changed: ${diff.stats.filesChanged} (+${diff.stats.additions} -${diff.stats.deletions})`)
-    lines.push('')
-    for (const file of diff.files) {
-      lines.push(`[${file.status}] ${file.path}`)
-      for (const hunk of file.hunks) {
-        lines.push(hunk.content)
-      }
-      lines.push('')
-    }
-    return lines.join('\n')
   }
 
   private spawnClaude(args: string[], cwd: string, extraEnv?: Record<string, string>): Promise<string> {
