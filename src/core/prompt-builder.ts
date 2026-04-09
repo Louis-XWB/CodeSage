@@ -1,4 +1,4 @@
-import type { DiffResult } from '../types.js'
+import type { DiffResult, ChangedFile } from '../types.js'
 import type { ProjectConfig, FocusLevel } from '../config/project-config.js'
 
 const FOCUS_LABELS: Record<FocusLevel, string> = {
@@ -8,11 +8,18 @@ const FOCUS_LABELS: Record<FocusLevel, string> = {
   ignore: '跳过，不要报告此类问题',
 }
 
+// Max changed lines to show per file in the compact diff
+const MAX_LINES_PER_FILE = 50
+// Max total chars for the entire change summary
+const MAX_SUMMARY_CHARS = 15000
+
 export function buildPrompt(skillContent: string, diff: DiffResult, config: ProjectConfig): string {
   const sections: string[] = []
 
+  // 1. Skill instructions
   sections.push(skillContent)
 
+  // 2. Project config instructions
   const configInstructions: string[] = []
 
   if (config.language) {
@@ -34,30 +41,75 @@ export function buildPrompt(skillContent: string, diff: DiffResult, config: Proj
     sections.push('---\n\n## 项目配置\n\n' + configInstructions.join('\n\n'))
   }
 
-  // Build diff content with size limit to avoid output truncation
-  const MAX_DIFF_CHARS = 30000
-  const diffLines: string[] = []
-  diffLines.push(`Files changed: ${diff.stats.filesChanged} (+${diff.stats.additions} -${diff.stats.deletions})`)
-  diffLines.push('')
-  let totalChars = 0
-  let truncated = false
-  for (const file of diff.files) {
-    const fileHeader = `[${file.status}] ${file.path}`
-    const fileContent = file.hunks.map(h => h.content).join('\n')
-    const fileBlock = fileHeader + '\n' + fileContent + '\n'
+  // 3. File list overview
+  const fileList = diff.files.map(f => {
+    const adds = countAdds(f)
+    const dels = countDels(f)
+    const stats = `+${adds} -${dels}`
+    return `  - [${f.status}] ${f.path} (${stats})`
+  }).join('\n')
 
-    if (totalChars + fileBlock.length > MAX_DIFF_CHARS) {
-      truncated = true
+  sections.push(`---\n\n## 变更文件列表\n\n共 ${diff.stats.filesChanged} 个文件，+${diff.stats.additions} -${diff.stats.deletions}\n\n${fileList}`)
+
+  // 4. Compact change summary — only changed lines, truncated per file
+  const summaryLines: string[] = []
+  let totalChars = 0
+
+  for (const file of diff.files) {
+    const compact = buildCompactDiff(file)
+    const block = `### ${file.path}\n\`\`\`\n${compact}\n\`\`\`\n`
+
+    if (totalChars + block.length > MAX_SUMMARY_CHARS) {
+      summaryLines.push(`\n... 剩余文件省略，请使用 Read 工具查看`)
       break
     }
-    diffLines.push(fileBlock)
-    totalChars += fileBlock.length
-  }
-  if (truncated) {
-    diffLines.push(`\n... (diff truncated, remaining files omitted to stay within context limit)`)
+    summaryLines.push(block)
+    totalChars += block.length
   }
 
-  sections.push('---\n\n以下是本次 PR 的变更内容：\n\n' + diffLines.join('\n'))
+  sections.push('## 变更摘要\n\n以下仅展示关键改动行，请务必使用 Read 工具查看每个文件的完整内容：\n\n' + summaryLines.join('\n'))
 
   return sections.join('\n\n')
+}
+
+function buildCompactDiff(file: ChangedFile): string {
+  const lines: string[] = []
+  let lineCount = 0
+
+  for (const hunk of file.hunks) {
+    for (const line of hunk.content.split('\n')) {
+      // Only show added/removed lines, skip context
+      if (line.startsWith('+') || line.startsWith('-')) {
+        if (line.startsWith('+++') || line.startsWith('---')) continue
+        lines.push(line)
+        lineCount++
+        if (lineCount >= MAX_LINES_PER_FILE) {
+          lines.push(`... (${file.path} 还有更多改动，请用 Read 查看完整文件)`)
+          return lines.join('\n')
+        }
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function countAdds(file: ChangedFile): number {
+  let count = 0
+  for (const hunk of file.hunks) {
+    for (const line of hunk.content.split('\n')) {
+      if (line.startsWith('+') && !line.startsWith('+++')) count++
+    }
+  }
+  return count
+}
+
+function countDels(file: ChangedFile): number {
+  let count = 0
+  for (const hunk of file.hunks) {
+    for (const line of hunk.content.split('\n')) {
+      if (line.startsWith('-') && !line.startsWith('---')) count++
+    }
+  }
+  return count
 }

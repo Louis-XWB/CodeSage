@@ -13,6 +13,7 @@ export interface ProjectConfig {
   maxFiles?: number
   reportLanguage?: 'zh-CN' | 'en'
   extraPrompt?: string
+  skill?: string              // path to custom skill file relative to repo root
 }
 
 export function loadProjectConfig(repoPath: string): ProjectConfig {
@@ -35,6 +36,7 @@ export function loadProjectConfig(repoPath: string): ProjectConfig {
   if (typeof parsed.maxFiles === 'number') config.maxFiles = parsed.maxFiles
   if (parsed.reportLanguage === 'zh-CN' || parsed.reportLanguage === 'en') config.reportLanguage = parsed.reportLanguage
   if (typeof parsed.extraPrompt === 'string') config.extraPrompt = parsed.extraPrompt
+  if (typeof parsed.skill === 'string') config.skill = parsed.skill
 
   return config
 }

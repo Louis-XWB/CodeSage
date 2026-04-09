@@ -21,7 +21,18 @@ const DEFAULT_SKILL = path.resolve(__dirname, '..', 'skills', 'review.md')
 export class Reviewer {
   async review(options: ReviewOptions): Promise<ReviewReport> {
     const { repoPath, env, projectConfig } = options
-    const skillPath = options.skillPath ?? DEFAULT_SKILL
+
+    // Resolve skill: custom project skill > explicit skillPath > default
+    let skillPath: string
+    if (projectConfig?.skill) {
+      skillPath = path.resolve(repoPath, projectConfig.skill)
+      if (!fs.existsSync(skillPath)) {
+        console.warn(`Custom skill not found: ${skillPath}, falling back to default`)
+        skillPath = options.skillPath ?? DEFAULT_SKILL
+      }
+    } else {
+      skillPath = options.skillPath ?? DEFAULT_SKILL
+    }
 
     const skillContent = fs.readFileSync(skillPath, 'utf-8')
 
